@@ -46,5 +46,10 @@ const estado = mensaje.match(/estado\s*[:\-]\s*(.+)/i)?.[1] || '';
     await ctx.reply('❌ Error al conectar con Google Sheets.');
   }
 });
+const http = require('http');
+http.createServer((req, res) => {
+  res.write('Bot activo');
+  res.end();
+}).listen(process.env.PORT || 3000);
 
 bot.launch();

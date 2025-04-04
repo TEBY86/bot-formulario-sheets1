@@ -50,5 +50,10 @@ const estado = mensaje.match(/estado\s*[:\-]\s*(.+)/i)?.[1] || '';
 (async () => {
   await bot.telegram.deleteWebhook();
   await bot.launch();
+    console.log("✅ Bot iniciado correctamente");
+  } catch (err) {
+    console.error("❌ Error al iniciar el bot:", err);
+  }
 })();
+
 

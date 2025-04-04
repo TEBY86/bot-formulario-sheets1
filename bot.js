@@ -47,4 +47,8 @@ const estado = mensaje.match(/estado\s*[:\-]\s*(.+)/i)?.[1] || '';
   }
 });
 
-bot.launch();
+(async () => {
+  await bot.telegram.deleteWebhook();
+  await bot.launch();
+})();
+

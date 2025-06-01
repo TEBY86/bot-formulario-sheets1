@@ -109,12 +109,6 @@ function validateData(data) {
   // ✅ Validación eliminada: ahora se permite enviar datos aunque falten campos obligatorios
   return; // No se valida nada, se permite envío libre
 }
-  }
-
-  if (missingFields.length > 0) {
-    throw new Error(`Faltan campos obligatorios: ${missingFields.join(', ')}`);
-  }
-}
 
 console.log('🤖✅ Bot iniciado correctamente. Esperando mensajes...');
 

@@ -1,59 +1,129 @@
-const { Telegraf } = require('telegraf');
+'use strict';
+
+require('dotenv').config(); // ✅ Cargar variables desde .env
+
+const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
+const express = require('express'); // ✅ Agregado para usar con UptimeRobot
+const app = express();
 
-// Token de tu bot de Telegram
-const bot = new Telegraf('7811444781:AAHDRHGOdqZcx_ffD4iaZE6aNp1m4qaq5_k');
+// ✅ Configuración desde variables de entorno
+const CONFIG = {
+  TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN,
+  GAS_URL: process.env.GAS_URL
+};
 
-// URL del Apps Script (ya desplegado como web app)
-const URL_APP_SCRIPT = 'https://script.google.com/macros/s/AKfycbzstr7GiBjvrU4YQOX2yBOm5lKb95xmDegy3nTOH3fOz2veSr4g8LD_Eu93GChCD3c9/exec';
+// Inicialización del bot
+const bot = new TelegramBot(CONFIG.TELEGRAM_TOKEN, {
+  polling: true,
+  onlyFirstMatch: true
+});
 
-bot.start((ctx) => ctx.reply('Hola 👋 Soy tu bot. Puedes pegar tu formulario aquí.'));
+// Mapeo mejorado de campos
+const FIELD_MAP = {
+  empresa: { synonyms: ['empresa', 'compania', 'proveedor'], required: true },
+  nombre: { synonyms: ['nombre', 'cliente', 'name'], required: true },
+  rut: { synonyms: ['rut', 'identificacion', 'dni'], required: true, format: formatRut },
+  telefono: { synonyms: ['telefono', 'fono', 'celular', 'contacto'] },
+  correo: { synonyms: ['correo', 'email', 'mail'], format: v => v.toLowerCase() },
+  direccion: { synonyms: ['direccion', 'domicilio', 'address'] },
+  comuna: { synonyms: ['comuna', 'ciudad'] },
+  region: { synonyms: ['region', 'provincia'] },
+  plan: { synonyms: ['plan', 'servicio'] },
+  deco: { synonyms: ['deco', 'equipo', 'adicional'] },
+  obs: { synonyms: ['obs', 'observacion', 'nota'] },
+  ejecutivo: { synonyms: ['ejecutivo', 'vendedor', 'asesor'] },
+  supervisor: { synonyms: ['supervisor', 'encargado'] }, // ✅ Agregado
+  serie: { synonyms: ['serie', 'serial'] },               // ✅ Agregado
+  zsmart: { synonyms: ['zsmart', 'codigo z'] },          // ✅ Agregado
+  estado: { synonyms: ['estado', 'situacion'] }          // ✅ Agregado
+};
 
-bot.on('text', async (ctx) => {
-  const mensaje = ctx.message.text;
-// Extraer los datos desde el texto (MISMO FORMATO ORIGINAL)
-const nombre = mensaje.match(/nombre\s*[:\-]\s*(.+)/i)?.[1] || '';
-const rut = mensaje.match(/rut\s*[:\-]\s*(.+)/i)?.[1] || '';
-const telefono = mensaje.match(/(fono|tel[eé]fono)\s*[:\-]\s*(.+)/i)?.[2]?.replace(/\D/g, '').replace(/^9?(\d{8})$/, '+569$1').replace(/^56(\d{9})$/, '+$1') || '';
-const correo = mensaje.match(/correo\s*[:\-]\s*(.+)/i)?.[1] || '';
-const direccion = mensaje.match(/dirección\s*[:\-]\s*(.+)/i)?.[1] || '';
-const comuna = mensaje.match(/comuna\s*[:\-]\s*(.+)/i)?.[1] || '';
-const region = mensaje.match(/región\s*[:\-]\s*(.+)/i)?.[1] || '';
-const plan = mensaje.match(/plan\s*[:\-]\s*(.+)/i)?.[1] || '';
-const deco = mensaje.match(/deco\s*[:\-]\s*(.+)/i)?.[1] || '';
-const observaciones = mensaje.match(/observaciones\s*[:\-]\s*(.+)/i)?.[1] || '';
-const empresa = mensaje.match(/empresa\s*[:\-]\s*(.+)/i)?.[1] || '';
-const serie = mensaje.match(/serie\s*[:\-]\s*(.+)/i)?.[1] || '';
-const ejecutivo = mensaje.match(/ejecutivo\s*[:\-]\s*(.+)/i)?.[1] || '';
-const supervisor = mensaje.match(/supervisor\s*[:\-]\s*(.+)/i)?.[1] || 'Sebastián Leiva';
-const zsmart = mensaje.match(/zsmart\s*[:\-]\s*(.+)/i)?.[1] || '';
-const estado = mensaje.match(/estado\s*[:\-]\s*(.+)/i)?.[1] || '';
+// Función para formatear RUT
+function formatRut(rut) {
+  if (!rut) return '';
+  const cleanRut = rut.toString()
+    .toUpperCase()
+    .replace(/[^0-9K]/g, '')
+    .replace(/^0+/, '');
+  if (cleanRut.length < 2) return rut;
+  return `${cleanRut.slice(0, -1)}-${cleanRut.slice(-1)}`;
+}
 
-  const datos = {
-    nombre, rut, telefono, correo, direccion, comuna, region,
-    plan, deco, observaciones, empresa, serie, ejecutivo, supervisor, zsmart, estado
-  };
+// Procesador de mensajes
+bot.on('message', async (msg) => {
+  const chatId = msg.chat.id;
 
   try {
-    const response = await axios.post(URL_APP_SCRIPT, datos);
-    if (response.data?.status === 'ok' || response.data === 'OK') {
-      await ctx.reply('✅ Datos enviados correctamente a la hoja de cálculo.');
-    } else {
-      await ctx.reply('⚠️ El servidor respondió pero no fue exitoso.');
+    if (!msg.text || !msg.text.toLowerCase().includes('venta')) {
+      return; // Ignorar mensajes sin "venta"
     }
+
+    const ventaData = parseMessage(msg.text);
+    validateData(ventaData);
+
+    const response = await axios.post(CONFIG.GAS_URL, ventaData);
+    await bot.sendMessage(chatId, response.data.message || '✅ Registro exitoso');
+
   } catch (error) {
-    console.error(error.response?.data || error.message);
-    await ctx.reply('❌ Error al conectar con Google Sheets.');
+    console.error('Error en mensaje:', error);
+    const errorMsg = error.response?.data?.message ||
+                    error.message ||
+                    'Error al procesar la solicitud';
+    await bot.sendMessage(chatId, `⚠️ ${errorMsg}`);
   }
 });
 
-(async () => {
-  await bot.telegram.deleteWebhook();
-  await bot.launch();
-    console.log("✅ Bot iniciado correctamente");
-  } catch (err) {
-    console.error("❌ Error al iniciar el bot:", err);
+// Analizador de mensajes mejorado
+function parseMessage(text) {
+  const result = {};
+  const lines = text.split('\n');
+
+  // Detección automática de empresa
+  const lowerText = text.toLowerCase();
+  if (lowerText.includes('entel')) result.empresa = 'ENTEL';
+  else if (lowerText.includes('vtr')) result.empresa = 'VTR';
+  else if (lowerText.includes('wom')) result.empresa = 'WOM';
+
+  // Procesar líneas con formato "clave: valor"
+  lines.forEach(line => {
+    const match = line.match(/^\s*[•\-*]*\s*([^:]+):\s*(.+)/i);
+    if (!match) return;
+
+    const rawKey = match[1].trim().toLowerCase();
+    const rawValue = match[2].trim();
+
+    for (const [field, config] of Object.entries(FIELD_MAP)) {
+      if (config.synonyms.some(syn => rawKey.includes(syn))) {
+        result[field] = config.format ? config.format(rawValue) : rawValue.toUpperCase();
+        break;
+      }
+    }
+  });
+
+  return result;
+}
+
+// Validación de datos
+function validateData(data) {
+  // ✅ Validación eliminada: ahora se permite enviar datos aunque falten campos obligatorios
+  return; // No se valida nada, se permite envío libre
+}
   }
-})();
 
+  if (missingFields.length > 0) {
+    throw new Error(`Faltan campos obligatorios: ${missingFields.join(', ')}`);
+  }
+}
 
+console.log('🤖✅ Bot iniciado correctamente. Esperando mensajes...');
+
+// ✅ Ruta para ping de UptimeRobot
+app.get('/', (req, res) => {
+  res.send('✅ Bot activo');
+});
+
+// ✅ Servidor Express para mantener activo el bot
+app.listen(process.env.PORT || 3000, () => {
+  console.log('🌐 Servidor web Express escuchando para keep-alive');
+});

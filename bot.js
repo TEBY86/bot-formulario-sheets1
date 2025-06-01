@@ -1,8 +1,10 @@
+
+
+
 'use strict';
 
 require('dotenv').config(); // ✅ Cargar variables desde .env
-
-const TelegramBot = require('node-telegram-bot-api');
+const { Telegraf } = require('telegraf');
 const axios = require('axios');
 const express = require('express'); // ✅ Agregado para usar con UptimeRobot
 const app = express();

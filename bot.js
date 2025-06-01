@@ -1,27 +1,25 @@
-
-
-
 'use strict';
 
-require('dotenv').config(); // ✅ Cargar variables desde .env
+require('dotenv').config();
+
 const { Telegraf } = require('telegraf');
 const axios = require('axios');
-const express = require('express'); // ✅ Agregado para usar con UptimeRobot
+const express = require('express');
 const app = express();
 
-// ✅ Configuración desde variables de entorno
 const CONFIG = {
   TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN,
   GAS_URL: process.env.GAS_URL
 };
 
-// Inicialización del bot
-const bot = new TelegramBot(CONFIG.TELEGRAM_TOKEN, {
-  polling: true,
-  onlyFirstMatch: true
-});
+console.log('🔒 Token cargado:', CONFIG.TELEGRAM_TOKEN?.slice(0, 10) + '...');
+if (!CONFIG.TELEGRAM_TOKEN) {
+  console.error('❌ TELEGRAM_TOKEN no definido en el entorno. Revisa las variables en Render.');
+  process.exit(1);
+}
 
-// Mapeo mejorado de campos
+const bot = new Telegraf(CONFIG.TELEGRAM_TOKEN);
+
 const FIELD_MAP = {
   empresa: { synonyms: ['empresa', 'compania', 'proveedor'], required: true },
   nombre: { synonyms: ['nombre', 'cliente', 'name'], required: true },
@@ -35,13 +33,12 @@ const FIELD_MAP = {
   deco: { synonyms: ['deco', 'equipo', 'adicional'] },
   obs: { synonyms: ['obs', 'observacion', 'nota'] },
   ejecutivo: { synonyms: ['ejecutivo', 'vendedor', 'asesor'] },
-  supervisor: { synonyms: ['supervisor', 'encargado'] }, // ✅ Agregado
-  serie: { synonyms: ['serie', 'serial'] },               // ✅ Agregado
-  zsmart: { synonyms: ['zsmart', 'codigo z'] },          // ✅ Agregado
-  estado: { synonyms: ['estado', 'situacion'] }          // ✅ Agregado
+  supervisor: { synonyms: ['supervisor', 'encargado'] },
+  serie: { synonyms: ['serie', 'serial'] },
+  zsmart: { synonyms: ['zsmart', 'codigo z'] },
+  estado: { synonyms: ['estado', 'situacion'] }
 };
 
-// Función para formatear RUT
 function formatRut(rut) {
   if (!rut) return '';
   const cleanRut = rut.toString()
@@ -52,42 +49,32 @@ function formatRut(rut) {
   return `${cleanRut.slice(0, -1)}-${cleanRut.slice(-1)}`;
 }
 
-// Procesador de mensajes
-bot.on('message', async (msg) => {
-  const chatId = msg.chat.id;
-
+bot.on('text', async (ctx) => {
   try {
-    if (!msg.text || !msg.text.toLowerCase().includes('venta')) {
-      return; // Ignorar mensajes sin "venta"
-    }
+    const mensaje = ctx.message.text;
+    if (!mensaje || !mensaje.toLowerCase().includes('venta')) return;
 
-    const ventaData = parseMessage(msg.text);
+    const ventaData = parseMessage(mensaje);
     validateData(ventaData);
 
     const response = await axios.post(CONFIG.GAS_URL, ventaData);
-    await bot.sendMessage(chatId, response.data.message || '✅ Registro exitoso');
-
+    await ctx.reply(response.data.message || '✅ Registro exitoso');
   } catch (error) {
     console.error('Error en mensaje:', error);
-    const errorMsg = error.response?.data?.message ||
-                    error.message ||
-                    'Error al procesar la solicitud';
-    await bot.sendMessage(chatId, `⚠️ ${errorMsg}`);
+    const errorMsg = error.response?.data?.message || error.message || 'Error al procesar la solicitud';
+    await ctx.reply(`⚠️ ${errorMsg}`);
   }
 });
 
-// Analizador de mensajes mejorado
 function parseMessage(text) {
   const result = {};
   const lines = text.split('\n');
 
-  // Detección automática de empresa
   const lowerText = text.toLowerCase();
   if (lowerText.includes('entel')) result.empresa = 'ENTEL';
   else if (lowerText.includes('vtr')) result.empresa = 'VTR';
   else if (lowerText.includes('wom')) result.empresa = 'WOM';
 
-  // Procesar líneas con formato "clave: valor"
   lines.forEach(line => {
     const match = line.match(/^\s*[•\-*]*\s*([^:]+):\s*(.+)/i);
     if (!match) return;
@@ -106,20 +93,19 @@ function parseMessage(text) {
   return result;
 }
 
-// Validación de datos
 function validateData(data) {
-  // ✅ Validación eliminada: ahora se permite enviar datos aunque falten campos obligatorios
-  return; // No se valida nada, se permite envío libre
+  return;
 }
 
-console.log('🤖✅ Bot iniciado correctamente. Esperando mensajes...');
+bot.launch();
 
-// ✅ Ruta para ping de UptimeRobot
+console.log('🤖✅ Bot iniciado correctamente con Telegraf. Esperando mensajes...');
+
 app.get('/', (req, res) => {
   res.send('✅ Bot activo');
 });
 
-// ✅ Servidor Express para mantener activo el bot
 app.listen(process.env.PORT || 3000, () => {
   console.log('🌐 Servidor web Express escuchando para keep-alive');
 });
+

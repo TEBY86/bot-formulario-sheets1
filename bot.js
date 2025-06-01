@@ -29,7 +29,7 @@ const FIELD_MAP = {
   direccion: { synonyms: ['direccion', 'domicilio', 'address', 'calle'] },
   comuna: { synonyms: ['comuna', 'ciudad'] },
   region: { synonyms: ['region', 'provincia'] },
-  plan: { synonyms: ['plan', 'servicio', 'servicio'] },
+  plan: { synonyms: ['plan', 'servicio', 'contrata'] },
   deco: { synonyms: ['deco', 'equipo', 'adicional'] },
   obs: { synonyms: ['obs', 'observacion', 'nota'] },
   ejecutivo: { synonyms: ['ejecutivo', 'vendedor', 'asesor'] },

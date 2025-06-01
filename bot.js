@@ -26,7 +26,7 @@ const FIELD_MAP = {
   rut: { synonyms: ['rut', 'identificacion', 'dni'], required: true, format: formatRut },
   telefono: { synonyms: ['telefono', 'fono', 'celular', 'contacto'] },
   correo: { synonyms: ['correo', 'email', 'mail'], format: v => v.toLowerCase() },
-  direccion: { synonyms: ['direccion', 'domicilio', 'address'] },
+  direccion: { synonyms: ['direccion', 'domicilio', 'address', 'calle'] },
   comuna: { synonyms: ['comuna', 'ciudad'] },
   region: { synonyms: ['region', 'provincia'] },
   plan: { synonyms: ['plan', 'servicio'] },

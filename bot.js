@@ -36,7 +36,8 @@ const FIELD_MAP = {
   supervisor: { synonyms: ['supervisor', 'encargado'] },
   serie: { synonyms: ['serie', 'serial'] },
   zsmart: { synonyms: ['zsmart', 'codigo z'] },
-  estado: { synonyms: ['estado', 'situacion'] }
+  estado: { synonyms: ['estado', 'situacion'] },
+  lider: { synonyms: ['jefe', 'monitor'] }
 };
 
 function formatRut(rut) {
